@@ -1,0 +1,109 @@
+{
+  "stock": {
+    "freshEdi": null,
+    "Ext": "YuShou,fhsx:1,isFlashPurchase:2,thwa:2,tsfw:h,platform,fare:115872,is7ToReturn:1",
+    "realSkuId": 10023774354580,
+    "promiseResult": "",
+    "nationallySetWare": null,
+    "popFxgCode": "0",
+    "sidDely": "-1",
+    "channel": 1,
+    "serviceInfo": "由<a href='//vgame.jd.com' target='_blank' clstag='shangpin|keycount|product|bbtn' class='hl_red'>武极电脑DIY旗舰店</a>从 湖北武汉市 发货, 并提供售后服务. ",
+    "rid": null,
+    "isSopUseSelfStock": "0",
+    "IsPurchase": false,
+    "areaLevel": 4,
+    "cla": [
+    ],
+    "eb": "99",
+    "ec": "-1",
+    "skuId": 10023774354580,
+    "Dc": [
+      {
+        "freihtType": 1,
+        "ordermin": 0.0,
+        "dcash": 0.0,
+        "dtype": 3
+      },
+      {
+        "freihtType": 1,
+        "ordermin": 0.0,
+        "dcash": 0.0,
+        "dtype": 2
+      }],
+    "yjhxMap": {
+      "IsSXQJ": {
+        "type": 1,
+        "attr": "IsSXQJ",
+        "exceptAttr": "",
+        "urlName": "高价回收，极速到账",
+        "url": "//huishou.jd.com?s=1",
+        "tips": "免费提供闲置物品回收服务，完成回收后可获得京东E卡或现金。"
+      }
+    },
+    "isWalMar": false,
+    "area": {
+      "townName": "",
+      "cityName": "松江区",
+      "success": true,
+      "provinceName": "上海",
+      "countyName": "小昆山镇"
+    },
+    "ab": "-1",
+    "ac": "-1",
+    "ad": "-1",
+    "ae": "-1",
+    "skuState": 1,
+    "PopType": 0,
+    "af": "-1",
+    "ag": "-1",
+    "isSam": false,
+    "vd": null,
+    "rfg": 0,
+    "Dti": null,
+    "jdPrice": {
+      "p": "5799.00",
+      "op": "5799.00",
+      "id": "10023774354580",
+      "m": "9999.00"
+    },
+    "rn": -1,
+    "support": [
+      {
+        "helpLink": "//huishou.jd.com?s=1&skuId=10023774354580",
+        "showName": "高价回收，极速到账",
+        "id": "old2new",
+        "iconTip": "免费提供闲置物品回收服务，完成回收后可获得京东E卡或现金。"
+      }],
+    "venderType": "0",
+    "PlusFlagInfo": "",
+    "code": 1,
+    "isPlus": false,
+    "afsCode": 1,
+    "D": {
+      "vid": 84607,
+      "df": "湖北武汉市",
+      "cg": "670:677:679",
+      "colType": 0,
+      "deliver": "武极电脑DIY旗舰店",
+      "id": 81477,
+      "type": 0,
+      "vender": "武极电脑DIY旗舰店",
+      "linkphone": "400-610-1360转113839",
+      "url": "//vgame.jd.com",
+      "po": "true"
+    },
+    "stockDesc": "<strong>无货</strong>，此商品暂时售完",
+    "sid": "-1",
+    "isJDexpress": "0",
+    "dcId": "-1",
+    "StockState": 34,
+    "StockStateName": "无货",
+    "dcashDesc": "在线支付免运费 <a title=\"了解配送费收取标准\" href=\"//help.jd.com/user/issue/109-188.html\" target=\"_blank\"><i class=\"sprite-question\"></i></a>",
+    "m": "0",
+    "ArrivalDate": "",
+    "v": "0"
+  },
+  "choseSuit": [
+  ]
+}
