@@ -87,7 +87,7 @@ func TestApi_LoginByQRCode(t *testing.T) {
 	}
 	ret, err := test.LoginByQRCode()
 	if err != nil {
-		log.Println(err)
+		log.Printf("%+v", err)
 	}
 	log.Println(ret)
 }

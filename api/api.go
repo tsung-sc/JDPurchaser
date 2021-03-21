@@ -4,6 +4,7 @@ import (
 	"JD_Purchase/models"
 	"JD_Purchase/utils"
 	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -15,6 +16,8 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -62,6 +65,41 @@ func Init() *Api {
 	return api
 }
 
+//func (a *Api) loadCookies()error  {
+//	cookiesFile:="cookies"
+//
+//}
+
+func (a *Api) saveCookies() error {
+	_, err := os.Stat("./cookies")
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.Mkdir("./cookies", os.ModePerm)
+			if err != nil {
+				return xerrors.Errorf("%w", err)
+			}
+		} else {
+			return xerrors.Errorf("%w", err)
+		}
+	}
+	cookiesFile := path.Join("./cookies", fmt.Sprintf("%s.cookies", a.Nickname))
+	f, err := os.Create(cookiesFile)
+	if err != nil {
+		return xerrors.Errorf("%w", err)
+	}
+	defer f.Close()
+	gob := gob.NewEncoder(f)
+	u, err := url.Parse("https://jd.com")
+	if err != nil {
+		return xerrors.Errorf("%w", err)
+	}
+	err = gob.Encode(a.Sess.Cookies(u))
+	if err != nil {
+		return xerrors.Errorf("%w", err)
+	}
+	return nil
+}
+
 func (a *Api) LoginByQRCode() (bool, error) {
 	var ticket string
 	if a.IsLogin {
@@ -99,6 +137,10 @@ func (a *Api) LoginByQRCode() (bool, error) {
 	log.Println("二维码登陆成功")
 	a.IsLogin = true
 	a.Nickname, err = a.GetUserInfo()
+	if err != nil {
+		return false, xerrors.Errorf("%w", err)
+	}
+	err = a.saveCookies()
 	if err != nil {
 		return false, xerrors.Errorf("%w", err)
 	}
