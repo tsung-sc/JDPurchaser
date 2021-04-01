@@ -1,14 +1,15 @@
 package api
 
 import (
+	"JD_Purchase/config"
 	"JD_Purchase/models"
 	"JD_Purchase/utils"
 	"bytes"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	jsoniter "github.com/json-iterator/go"
+	"golang.org/x/net/publicsuffix"
 	"golang.org/x/xerrors"
 	"io/ioutil"
 	"log"
@@ -21,13 +22,16 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	useRandomUa = ""
-	QRCodeFile  = "./QRCode.png"
-	retryTimes  = 85
+	DEFAULT_TIMEOUT    = 10
+	DEFAULT_USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36`
+	useRandomUa        = ""
+	QRCodeFile         = "./QRCode.png"
+	retryTimes         = 85
 )
 
 func init() {
@@ -36,7 +40,7 @@ func init() {
 }
 
 type Api struct {
-	models.Messenger
+	Messenger        *models.Messenger
 	Client           *http.Client
 	UserAgent        string
 	Headers          http.Header
@@ -45,7 +49,7 @@ type Api struct {
 	TrackID          string
 	RiskControl      string
 	Timeout          time.Duration
-	SendMessage      string
+	SendMessage      bool
 	ItemCat          map[string]string
 	ItemVenderIDs    map[string]string
 	SeckillInitInfo  map[string]string
@@ -54,23 +58,64 @@ type Api struct {
 	Username         string
 	Nickname         string
 	IsLogin          bool
-	Sess             *cookiejar.Jar
 }
 
-func Init() *Api {
+func NewApi(client *http.Client) (*Api, error) {
+	var err error
 	api := new(Api)
+	api.Client = client
+	if config.Get().IsRandomUserAgent {
+		api.UserAgent = utils.GetRandomUserAgent()
+	} else {
+		api.UserAgent = DEFAULT_USER_AGENT
+	}
+	header := map[string][]string{
+		"User-Agent": {api.UserAgent},
+	}
+	api.Headers = header
+	api.EID = config.Get().EID
+	api.Fp = config.Get().FP
+	api.TrackID = config.Get().TrackID
+	api.RiskControl = config.Get().RiskControl
+	if api.EID == "" || api.Fp == "" || api.TrackID == "" || api.RiskControl == "" {
+		return nil, xerrors.Errorf("请在 config.ini 中配置 eid, fp, track_id, risk_control 参数")
+	}
+	if config.Get().Timeout == 0 {
+		api.Timeout = time.Duration(DEFAULT_TIMEOUT)
+	} else {
+		api.Timeout = time.Duration(config.Get().Timeout)
+	}
+	api.SendMessage = config.Get().EnableSendMessage
+	if api.SendMessage {
+		api.Messenger = models.NewMessenger(config.Get().Messenger.Sckey)
+	}
+	api.ItemCat = make(map[string]string)
+	api.ItemVenderIDs = make(map[string]string)
+	api.SeckillInitInfo = make(map[string]string)
+	api.SeckillOrderData = make(map[string]string)
+	api.SeckillUrl = make(map[string]string)
+	api.Username = ""
+	api.Nickname = "JD_Purchase"
 	api.IsLogin = false
-	//todo:
-
-	return api
+	api.Client.Jar, err = cookiejar.New(&cookiejar.Options{
+		PublicSuffixList: publicsuffix.List,
+	})
+	if err != nil {
+		return nil, xerrors.Errorf("%w", err)
+	}
+	err = api.loadCookies()
+	if err != nil {
+		if xerrors.Is(err, os.ErrNotExist) {
+			log.Printf("未找到Cookies,将重新登陆！")
+		} else {
+			return nil, xerrors.Errorf("%w", err)
+		}
+	}
+	return api, nil
 }
 
-//func (a *Api) loadCookies()error  {
-//	cookiesFile:="cookies"
-//
-//}
-
-func (a *Api) saveCookies() error {
+func (a *Api) loadCookies() error {
+	var cookies []*http.Cookie
 	_, err := os.Stat("./cookies")
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -82,22 +127,86 @@ func (a *Api) saveCookies() error {
 			return xerrors.Errorf("%w", err)
 		}
 	}
-	cookiesFile := path.Join("./cookies", fmt.Sprintf("%s.cookies", a.Nickname))
+	cookiesFile := path.Join("./cookies", fmt.Sprintf("%s.json", a.Nickname))
+	cookiesByte, err := ioutil.ReadFile(cookiesFile)
+	if err != nil {
+		return xerrors.Errorf("%w", err)
+	}
+	u, err := url.Parse("https://www.jd.com")
+	err = jsoniter.Unmarshal(cookiesByte, &cookies)
+	if err != nil {
+		return xerrors.Errorf("%w", err)
+	}
+	a.Client.Jar.SetCookies(u, cookies)
+	a.IsLogin, err = a.validateCookies()
+	if err != nil {
+		return xerrors.Errorf("%w", err)
+	}
+	return nil
+}
+
+func (a *Api) saveCookies(cookies []*http.Cookie) error {
+	_, err := os.Stat("./cookies")
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.Mkdir("./cookies", os.ModePerm)
+			if err != nil {
+				return xerrors.Errorf("%w", err)
+			}
+		} else {
+			return xerrors.Errorf("%w", err)
+		}
+	}
+	cookiesFile := path.Join("./cookies", fmt.Sprintf("%s.json", a.Nickname))
 	f, err := os.Create(cookiesFile)
 	if err != nil {
 		return xerrors.Errorf("%w", err)
 	}
 	defer f.Close()
-	gob := gob.NewEncoder(f)
-	u, err := url.Parse("https://jd.com")
+	for _, cookie := range cookies {
+		cookie.Domain = ".jd.com"
+		cookie.Path = "/"
+	}
+	cookiesByte, err := jsoniter.Marshal(cookies)
 	if err != nil {
 		return xerrors.Errorf("%w", err)
 	}
-	err = gob.Encode(a.Sess.Cookies(u))
+	_, err = f.Write(cookiesByte)
 	if err != nil {
 		return xerrors.Errorf("%w", err)
 	}
 	return nil
+}
+
+func (a *Api) validateCookies() (bool, error) {
+	u := "https://order.jd.com/center/list.action"
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return false, xerrors.Errorf("%w", err)
+	}
+	req.Header = a.Headers
+
+	clientPool := sync.Pool{New: func() interface{} {
+		return *a.Client
+	}}
+	newClient := clientPool.Get()
+	defer clientPool.Put(newClient)
+	v, ok := newClient.(http.Client)
+	if !ok {
+		return false, xerrors.Errorf("%w", "not http client!")
+	}
+	v.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	resp, err := v.Do(req)
+	if err != nil {
+		return false, xerrors.Errorf("%w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (a *Api) LoginByQRCode() (bool, error) {
@@ -136,11 +245,7 @@ func (a *Api) LoginByQRCode() (bool, error) {
 	}
 	log.Println("二维码登陆成功")
 	a.IsLogin = true
-	a.Nickname, err = a.GetUserInfo()
-	if err != nil {
-		return false, xerrors.Errorf("%w", err)
-	}
-	err = a.saveCookies()
+	a.Nickname, err = a.GetUserInfo(a.saveCookies)
 	if err != nil {
 		return false, xerrors.Errorf("%w", err)
 	}
@@ -158,6 +263,7 @@ func (a *Api) GetLoginPage() {
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 	log.Println(resp)
 }
 
@@ -198,7 +304,7 @@ func (a *Api) GetQRCodeTicket() (string, error) {
 	if err != nil {
 		return "", xerrors.Errorf("%w", err)
 	}
-	cookies := a.Sess.Cookies(cookieUrl)
+	cookies := a.Client.Jar.Cookies(cookieUrl)
 	for _, v := range cookies {
 		if v.Name == "wlfstk_smdl" {
 			token = v.Value
@@ -271,7 +377,7 @@ func (a *Api) ValidateQRCodeTicket(ticket string) (bool, error) {
 	return true, nil
 }
 
-func (a *Api) GetUserInfo() (string, error) {
+func (a *Api) GetUserInfo(cookiesHandle func([]*http.Cookie) error) (string, error) {
 	u := "https://passport.jd.com/user/petName/getUserInfoForMiniJd.action?"
 	args := url.Values{}
 	args.Add("callback", fmt.Sprintf("jQuery%v", rand.Intn(9999999-1000000)+1000000))
@@ -299,6 +405,10 @@ func (a *Api) GetUserInfo() (string, error) {
 	}
 	if ret.NickName == "" {
 		return "jd", nil
+	}
+	err = cookiesHandle(req.Cookies())
+	if err != nil {
+		return "", xerrors.Errorf("%w", err)
 	}
 	return ret.NickName, nil
 }
@@ -346,7 +456,7 @@ func (a *Api) BuyItemInStock(skuIDs string, area string, waitAll bool, stockInte
 func (a *Api) GetMultiItemStockNew(itemMap map[string]string, area string) (bool, error) {
 	u := "https://c0.3.cn/stocks?"
 	keys := make([]string, 0)
-	for k, _ := range itemMap {
+	for k := range itemMap {
 		keys = append(keys, k)
 	}
 	skuIds := strings.Join(keys, ",")
@@ -365,6 +475,7 @@ func (a *Api) GetMultiItemStockNew(itemMap map[string]string, area string) (bool
 	if err != nil {
 		return false, xerrors.Errorf("%w", err)
 	}
+	defer resp.Body.Close()
 	stock := true
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -430,7 +541,7 @@ func (a *Api) GetSigleItemStock(skuID string, num string, area string) (bool, er
 	}
 	req.Header.Set("User-Agent", a.UserAgent)
 	req.Header.Set("Referer", fmt.Sprintf("https://item.jd.com/%s.html", skuID))
-	a.Client.Timeout = a.Timeout
+	a.Client.Timeout = time.Second * a.Timeout
 	resp, err := a.Client.Do(req)
 	if err != nil {
 		return false, xerrors.Errorf("%w", err)
@@ -575,7 +686,7 @@ func (a *Api) SubmitOrderWithRetry(submitRetry, interval int) (bool, error) {
 		} else {
 			if i < retryTimes {
 				log.Printf("第%d次提交失败，%ds后重试", i, interval)
-				time.Sleep(time.Duration(interval))
+				time.Sleep(time.Second * time.Duration(interval))
 			}
 		}
 	}
@@ -585,7 +696,7 @@ func (a *Api) SubmitOrderWithRetry(submitRetry, interval int) (bool, error) {
 
 func (a *Api) GetCheckoutPageDetail() (map[string]string, error) {
 	orderDetail := make(map[string]string)
-	u := "http://trade.jd.com/shopping/order/getOrderInfo.action"
+	u := "http://trade.jd.com/shopping/order/getOrderInfo.action?"
 	args := url.Values{}
 	args.Add("rid", fmt.Sprintf("%d", time.Now().Unix()*1e3))
 	u = u + args.Encode()
@@ -628,12 +739,6 @@ func (a *Api) SubmitOrder() (bool, error) {
 	args.Add("riskControl", a.RiskControl)
 	args.Add("submitOrderParam.isBestCoupon", "1")
 	args.Add("submitOrderParam.jxj", "1")
-	args.Add("submitOrderParam.trackId", "TestTrackId")
-	args.Add("submitOrderParam.ignorePriceChange", "0")
-	args.Add("submitOrderParam.btSupport", "0")
-	args.Add("riskControl", "0")
-	args.Add("submitOrderParam.isBestCoupon", "1")
-	args.Add("submitOrderParam.jxj", "1")
 	args.Add("submitOrderParam.trackId", a.TrackID)
 	args.Add("submitOrderParam.eid", a.EID)
 	args.Add("submitOrderParam.fp", a.Fp)
@@ -658,7 +763,7 @@ func (a *Api) SubmitOrder() (bool, error) {
 	if jsoniter.Get(data, "success").ToBool() {
 		orderId = jsoniter.Get(data, "orderId").ToInt64()
 		log.Printf("订单提交成功！订单号:%d", orderId)
-		if a.SendMessage == "" {
+		if a.SendMessage {
 			//todo:
 
 		}
@@ -728,8 +833,9 @@ func (a *Api) SaveInvoice() {
 	}
 	req.Header.Set("User-Agent", a.UserAgent)
 	req.Header.Set("Referer", "https://trade.jd.com/shopping/dynamic/invoice/saveInvoice.action")
-	_, err = a.Client.Do(req)
+	resp, err := a.Client.Do(req)
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 }
