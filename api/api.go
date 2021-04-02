@@ -29,7 +29,6 @@ import (
 const (
 	DEFAULT_TIMEOUT    = 10
 	DEFAULT_USER_AGENT = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36`
-	useRandomUa        = ""
 	QRCodeFile         = "./QRCode.png"
 	retryTimes         = 85
 )
@@ -78,7 +77,7 @@ func NewApi(client *http.Client) (*Api, error) {
 	api.TrackID = config.Get().TrackID
 	api.RiskControl = config.Get().RiskControl
 	if api.EID == "" || api.Fp == "" || api.TrackID == "" || api.RiskControl == "" {
-		return nil, xerrors.Errorf("请在 config.ini 中配置 eid, fp, track_id, risk_control 参数")
+		return nil, xerrors.Errorf("请在 conf.yaml 中配置 eid, fp, track_id, risk_control 参数")
 	}
 	if config.Get().Timeout == 0 {
 		api.Timeout = time.Duration(DEFAULT_TIMEOUT)
@@ -193,7 +192,7 @@ func (a *Api) validateCookies() (bool, error) {
 	defer clientPool.Put(newClient)
 	v, ok := newClient.(http.Client)
 	if !ok {
-		return false, xerrors.Errorf("%w", "not http client!")
+		return false, xerrors.Errorf("%w", "not server client!")
 	}
 	v.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
@@ -696,7 +695,7 @@ func (a *Api) SubmitOrderWithRetry(submitRetry, interval int) (bool, error) {
 
 func (a *Api) GetCheckoutPageDetail() (map[string]string, error) {
 	orderDetail := make(map[string]string)
-	u := "http://trade.jd.com/shopping/order/getOrderInfo.action?"
+	u := "server://trade.jd.com/shopping/order/getOrderInfo.action?"
 	args := url.Values{}
 	args.Add("rid", fmt.Sprintf("%d", time.Now().Unix()*1e3))
 	u = u + args.Encode()
@@ -750,7 +749,7 @@ func (a *Api) SubmitOrder() (bool, error) {
 	}
 	req.Header.Add("User-Agent", a.UserAgent)
 	req.Header.Add("Host", "trade.jd.com")
-	req.Header.Add("Referer", "http://trade.jd.com/shopping/order/getOrderInfo.action")
+	req.Header.Add("Referer", "server://trade.jd.com/shopping/order/getOrderInfo.action")
 	resp, err := a.Client.Do(req)
 	if err != nil {
 		return false, xerrors.Errorf("%w", err)

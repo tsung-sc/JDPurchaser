@@ -11,6 +11,7 @@ var once sync.Once
 var config = &Config{}
 
 type Config struct {
+	ListenPort        string `yaml:"listenPort""`
 	IsRandomUserAgent bool   `yaml:"isRandomUseragent"`
 	EID               string `yaml:"eid"`
 	FP                string `yaml:"fp"`
@@ -21,6 +22,14 @@ type Config struct {
 	Messenger         struct {
 		Sckey string `yaml:"sckey"`
 	} `yaml:"messenger"`
+	DB struct {
+		Debug       bool   `yaml:"debug"`
+		Type        string `yaml:"type"`
+		URL         string `yaml:"url"`
+		MaxLifetime int    `yaml:"maxLifetime"`
+		MaxIdleConn int    `yaml:"maxIdleConn"`
+		MaxOpenConn int    `yaml:"maxOpenConn"`
+	} `yaml:"db"`
 }
 
 func Get() *Config {
