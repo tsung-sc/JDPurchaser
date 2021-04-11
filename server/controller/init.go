@@ -42,6 +42,10 @@ func RegisterController() []*NS {
 			Controller: PurchaserCtl{instance.DB, instance.Api},
 			Path:       "/core",
 		},
+		{
+			Controller: SystemCtl{instance.Api, instance.DB},
+			Path:       "/system",
+		},
 	}
 	return routers
 }
