@@ -11,13 +11,14 @@ var once sync.Once
 var config = &Config{}
 
 type Config struct {
-	ListenPort        string `yaml:"listenPort""`
+	ListenPort        string `yaml:"listenPort"`
 	IsRandomUserAgent bool   `yaml:"isRandomUseragent"`
 	EID               string `yaml:"eid"`
 	FP                string `yaml:"fp"`
 	TrackID           string `yaml:"track_id"`
 	RiskControl       string `yaml:"risk_control"`
 	Timeout           int64  `yaml:"timeout"`
+	PaymentPwd        string `yaml:"payment_pwd"`
 	EnableSendMessage bool   `yaml:"enableSendMessage"`
 	Messenger         struct {
 		Sckey string `yaml:"sckey"`

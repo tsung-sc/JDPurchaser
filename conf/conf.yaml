@@ -4,6 +4,7 @@ fp: ''
 track_id: ''
 risk_control: ''
 timeout: 10
+paymentPwd:
 enableSendMessage: false
 messenger:
   sckey: ''

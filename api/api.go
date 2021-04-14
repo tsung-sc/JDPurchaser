@@ -51,11 +51,12 @@ type Api struct {
 	SendMessage      bool
 	ItemCat          map[string]string
 	ItemVenderIDs    map[string]string
-	SeckillInitInfo  map[string]string
+	SeckillInitInfo  map[string][]byte
 	SeckillOrderData map[string]string
 	SeckillUrl       map[string]string
 	Username         string
 	Nickname         string
+	PaymentPwd       string
 	IsLogin          bool
 }
 
@@ -90,11 +91,16 @@ func NewApi(client *http.Client) (*Api, error) {
 	}
 	api.ItemCat = make(map[string]string)
 	api.ItemVenderIDs = make(map[string]string)
-	api.SeckillInitInfo = make(map[string]string)
+	api.SeckillInitInfo = make(map[string][]byte)
 	api.SeckillOrderData = make(map[string]string)
 	api.SeckillUrl = make(map[string]string)
 	api.Username = ""
 	api.Nickname = "JD_Purchase"
+	if config.Get().PaymentPwd == "" {
+		api.PaymentPwd = "payment_pwd"
+	} else {
+		api.PaymentPwd = config.Get().PaymentPwd
+	}
 	api.IsLogin = false
 	api.Client.Jar, err = cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,

@@ -141,3 +141,71 @@ func (a *Api) GetSeckillInitInfo(skuID string, num int) (data []byte, err error)
 	}
 	return data, nil
 }
+
+//生成提交抢购订单所需的请求体参数
+func (a *Api) GenSeckillOrderData(skuID string, num int) (string, error) {
+	if num == 0 {
+		num = 1
+	}
+	args := url.Values{}
+	_, exist := a.SeckillInitInfo[skuID]
+	if !exist {
+		seckillInfo, err := a.GetSeckillInitInfo(skuID, 1)
+		if err != nil {
+			return "", xerrors.Errorf("%w", err)
+		}
+		a.SeckillInitInfo[skuID] = seckillInfo
+	}
+	initInfo := a.SeckillInitInfo[skuID]
+	defaultAddress := jsoniter.Get(initInfo, "addressList", 0)
+	invoiceInfoKeys := jsoniter.Get(initInfo, "invoiceInfo").Keys()
+	if invoiceInfoKeys == nil {
+		args.Add("invoiceTitle", "-1")
+		args.Add("invoiceContent", "1")
+		args.Add("invoicePhone", "")
+		args.Add("invoicePhoneKey", "")
+		args.Add("invoice", "false")
+	} else {
+		args.Add("invoiceTitle", jsoniter.Get(initInfo, "invoiceInfo").Get("invoiceTitle").ToString())
+		args.Add("invoiceContent", jsoniter.Get(initInfo, "invoiceInfo").Get("invoiceContentType").ToString())
+		args.Add("invoicePhone", jsoniter.Get(initInfo, "invoiceInfo").Get("invoicePhone").ToString())
+		args.Add("invoicePhoneKey", jsoniter.Get(initInfo, "invoiceInfo").Get("invoicePhone").ToString())
+		args.Add("invoice", "true")
+	}
+	token := jsoniter.Get(initInfo, "token").ToString()
+	args.Add("skuId", skuID)
+	args.Add("num", fmt.Sprintf("%d", num))
+	args.Add("addressId", defaultAddress.Get("id").ToString())
+	var yuShou string
+	if jsoniter.Get(initInfo, "seckillSkuVO").Get("extMap").Get("YuShou").ToString() != "0" {
+		yuShou = "true"
+	} else {
+		yuShou = "false"
+	}
+	args.Add("yuShou", yuShou)
+	args.Add("isModifyAddress", "false")
+	args.Add("name", defaultAddress.Get("name").ToString())
+	args.Add("provinceId", defaultAddress.Get("provinceId").ToString())
+	args.Add("cityId", defaultAddress.Get("cityId").ToString())
+	args.Add("countyId", defaultAddress.Get("countyId").ToString())
+	args.Add("townId", defaultAddress.Get("townId").ToString())
+	args.Add("addressDetail", defaultAddress.Get("addressDetail").ToString())
+	args.Add("mobile", defaultAddress.Get("mobile").ToString())
+	args.Add("mobileKey", defaultAddress.Get("mobileKey").ToString())
+	args.Add("email", defaultAddress.Get("email").ToString())
+	args.Add("postCode", "")
+	args.Add("invoiceCompanyName", "")
+	args.Add("invoiceTaxpayerNO", "")
+	args.Add("invoiceEmail", "")
+	args.Add("password", a.PaymentPwd)
+	args.Add("codTimeType", "3")
+	args.Add("paymentType", "4")
+	args.Add("areaCode", "")
+	args.Add("overseas", "")
+	args.Add("phone", "")
+	args.Add("eid", a.EID)
+	args.Add("fp", a.Fp)
+	args.Add("token", token)
+	args.Add("pru", "")
+	return args.Encode(), nil
+}
