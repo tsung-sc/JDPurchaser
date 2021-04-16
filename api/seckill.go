@@ -209,3 +209,46 @@ func (a *Api) GenSeckillOrderData(skuID string, num int) (string, error) {
 	args.Add("pru", "")
 	return args.Encode(), nil
 }
+
+func (a *Api) SubmitSeckillOrder(skuID string, num int) (bool, error) {
+	if num == 0 {
+		num = 1
+	}
+	u := "https://marathon.jd.com/seckillnew/orderService/pc/submitOrder.action?"
+	args := url.Values{}
+	args.Add("skuId", skuID)
+	_, ok := a.SeckillOrderData[skuID]
+	if !ok {
+		orderData, err := a.GenSeckillOrderData(skuID, num)
+		if err != nil {
+			return false, xerrors.Errorf("%w", err)
+		}
+		a.SeckillOrderData[skuID] = orderData
+	}
+	req, err := http.NewRequest(http.MethodPost, u+args.Encode(), strings.NewReader(a.SeckillOrderData[skuID]))
+	if err != nil {
+		return false, xerrors.Errorf("%w", err)
+	}
+	req.Header.Add("User-Agent", a.UserAgent)
+	req.Header.Add("Host", "marathon.jd.com")
+	req.Header.Add("Referer", fmt.Sprintf("https://marathon.jd.com/seckill/seckill.action?skuId=%s&num=%d&rid=%d", skuID, num, time.Now().Unix()))
+	resp, err := a.Client.Do(req)
+	if err != nil {
+		return false, xerrors.Errorf("%w", err)
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, xerrors.Errorf("%w", err)
+	}
+	if jsoniter.Get(data, "success").ToBool() {
+		orderID := jsoniter.Get(data, "orderId").ToString()
+		totalMoney := jsoniter.Get(data, "totalMoney").ToString()
+		payUrl := jsoniter.Get(data, "pcUrl").ToString()
+		log.Printf("抢购成功，订单号：%s,总价：%s,电脑端付款链接：%s", orderID, totalMoney, payUrl)
+		return true, nil
+	} else {
+		log.Printf("抢购失败，返回信息：%s", string(data))
+	}
+	return false, nil
+}
