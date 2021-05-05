@@ -2,9 +2,12 @@ package main
 
 import (
 	"JD_Purchase/server"
+	"JD_Purchase/utils"
+	"log"
 )
 
 func main() {
+	log.Print(utils.Logo)
 	server.ListenAndServe()
 	//skuIDs := "730618,4080291:2"
 	//area := "18_1482_48938_52586"
